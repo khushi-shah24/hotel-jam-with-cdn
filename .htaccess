@@ -1,6 +1,10 @@
 # SPA Routing Configuration
 RewriteEngine On
 
+# Enable error logging
+php_flag log_errors on
+php_value error_log /tmp/php_errors.log
+
 # Handle API requests
 RewriteCond %{REQUEST_URI} ^/api/
 RewriteRule ^api/(.*)$ api/index.php [QSA,L]
@@ -18,6 +22,12 @@ RewriteRule ^ index.html [L]
 Header always set X-Content-Type-Options nosniff
 Header always set X-Frame-Options DENY
 Header always set X-XSS-Protection "1; mode=block"
+
+# PHP Configuration for production
+php_value max_execution_time 30
+php_value memory_limit 128M
+php_value post_max_size 10M
+php_value upload_max_filesize 10M
 
 # Cache static assets
 <FilesMatch "\.(css|js|png|jpg|jpeg|gif|ico|svg)$">

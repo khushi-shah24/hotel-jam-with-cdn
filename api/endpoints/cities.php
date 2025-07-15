@@ -2,10 +2,19 @@
 // Cities API Endpoint
 global $db;
 
+// Verify database connection
+if (!$db) {
+    Response::error('Database connection not available', 500);
+}
+
 switch ($method) {
     case 'GET':
         try {
             $cities = getCities();
+            
+            if ($cities === false || $cities === null) {
+                Response::error('Failed to retrieve cities from database', 500);
+            }
             
             // Add image URLs to cities
             foreach ($cities as &$city) {
@@ -15,7 +24,7 @@ switch ($method) {
             Response::success($cities, 'Cities retrieved successfully');
         } catch (Exception $e) {
             error_log('Cities API Error: ' . $e->getMessage());
-            Response::error('Failed to retrieve cities');
+            Response::error('Failed to retrieve cities: ' . $e->getMessage());
         }
         break;
         

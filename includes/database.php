@@ -1,13 +1,21 @@
 <?php
-// database.php - MySQL Version
 define('PROJECT_ROOT', dirname(__DIR__));
 
-// Database configuration - Update these with your MySQL credentials
-define('DB_HOST', 'localhost');
-define('DB_NAME', 'elite_hotels');
-define('DB_USER', 'root');
-define('DB_PASS', '');
-define('DB_CHARSET', 'utf8mb4');
+// Database configuration - Update these with your production MySQL credentials
+$db_config = [
+    'host' => $_ENV['DB_HOST'] ?? 'localhost',
+    'name' => $_ENV['DB_NAME'] ?? 'elite_hotels', 
+    'user' => $_ENV['DB_USER'] ?? 'root',
+    'pass' => $_ENV['DB_PASS'] ?? '',
+    'charset' => 'utf8mb4'
+];
+
+// Fallback to constants if environment variables not available
+define('DB_HOST', $db_config['host']);
+define('DB_NAME', $db_config['name']);
+define('DB_USER', $db_config['user']);
+define('DB_PASS', $db_config['pass']);
+define('DB_CHARSET', $db_config['charset']);
 
 // Image configuration for local and Cloudinary images
 $CITY_FOLDER_MAP = [
@@ -264,10 +272,29 @@ try {
         PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
         PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
         PDO::ATTR_EMULATE_PREPARES => false,
+        PDO::MYSQL_ATTR_INIT_COMMAND => "SET NAMES utf8mb4 COLLATE utf8mb4_unicode_ci"
     ];
     $db = new PDO($dsn, DB_USER, DB_PASS, $options);
+    
+    // Test the connection
+    $db->query("SELECT 1");
+    
 } catch (PDOException $e) {
-    die("Database connection failed: " . $e->getMessage());
+    // Log error for debugging but don't expose sensitive info in production
+    error_log("Database connection failed: " . $e->getMessage());
+    
+    // Return JSON error for API calls
+    if (strpos($_SERVER['REQUEST_URI'], '/api/') !== false) {
+        header('Content-Type: application/json');
+        echo json_encode([
+            'success' => false,
+            'message' => 'Database connection failed',
+            'timestamp' => date('c')
+        ]);
+        exit;
+    }
+    
+    die("Database connection failed. Please check your configuration.");
 }
 
 // Create tables if they don't exist (MySQL syntax)

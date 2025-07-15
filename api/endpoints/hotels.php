@@ -2,6 +2,11 @@
 // Hotels API Endpoint
 global $db;
 
+// Verify database connection
+if (!$db) {
+    Response::error('Database connection not available', 500);
+}
+
 switch ($method) {
     case 'GET':
         if (isset($segments[1])) {
@@ -13,16 +18,19 @@ switch ($method) {
                     try {
                         $hotels = getFeaturedHotels($limit);
                         
+                        if ($hotels === false || $hotels === null) {
+                            Response::error('Failed to retrieve featured hotels from database', 500);
+                        }
+                        
                         // Add image URLs
                         foreach ($hotels as &$hotel) {
-                            static $imageCounter = 1;  // or use hotel index if available
-$hotel['image_url'] = getHotelImageUrl($hotel, $imageCounter++);
+                            $hotel['image_url'] = getHotelImageUrl($hotel);
                         }
                         
                         Response::success($hotels, 'Featured hotels retrieved successfully');
                     } catch (Exception $e) {
                         error_log('Featured hotels API Error: ' . $e->getMessage());
-                        Response::error('Failed to retrieve featured hotels');
+                        Response::error('Failed to retrieve featured hotels: ' . $e->getMessage());
                     }
                     break;
                     
@@ -31,10 +39,15 @@ $hotel['image_url'] = getHotelImageUrl($hotel, $imageCounter++);
                     $city = $_GET['city'] ?? '';
                     try {
                         $count = getTotalHotels($city);
+                        
+                        if ($count === false || $count === null) {
+                            $count = 0;
+                        }
+                        
                         Response::success(['count' => $count], 'Hotel count retrieved successfully');
                     } catch (Exception $e) {
                         error_log('Hotel count API Error: ' . $e->getMessage());
-                        Response::error('Failed to retrieve hotel count');
+                        Response::error('Failed to retrieve hotel count: ' . $e->getMessage());
                     }
                     break;
                     
@@ -47,12 +60,11 @@ $hotel['image_url'] = getHotelImageUrl($hotel, $imageCounter++);
                             Response::notFound('Hotel not found');
                         }
                         
-                        static $imageCounter = 1;  // or use hotel index if available
-$hotel['image_url'] = getHotelImageUrl($hotel, $imageCounter++);
+                        $hotel['image_url'] = getHotelImageUrl($hotel);
                         Response::success($hotel, 'Hotel retrieved successfully');
                     } catch (Exception $e) {
                         error_log('Hotel API Error: ' . $e->getMessage());
-                        Response::error('Failed to retrieve hotel');
+                        Response::error('Failed to retrieve hotel: ' . $e->getMessage());
                     }
             }
         } else {
@@ -61,23 +73,29 @@ $hotel['image_url'] = getHotelImageUrl($hotel, $imageCounter++);
             $limit = isset($_GET['limit']) ? (int)$_GET['limit'] : 24;
             $page = isset($_GET['page']) ? (int)$_GET['page'] : 1;
             $offset = ($page - 1) * $limit;
-            $imageCounter = ($page - 1) * $limit + 1;
 
             try {
                 $hotels = getHotels($city, $limit, $offset);
                 $totalCount = getTotalHotels($city);
                 
+                if ($hotels === false || $hotels === null) {
+                    $hotels = [];
+                }
+                
+                if ($totalCount === false || $totalCount === null) {
+                    $totalCount = 0;
+                }
+                
                 // Add image URLs
                 foreach ($hotels as &$hotel) {
-                    static $imageCounter = 1;  // or use hotel index if available
-$hotel['image_url'] = getHotelImageUrl($hotel, $imageCounter++);
+                    $hotel['image_url'] = getHotelImageUrl($hotel);
                 }
                 
                 Response::paginated($hotels, $totalCount, $page, $limit, 'Hotels retrieved successfully');
                 
             } catch (Exception $e) {
                 error_log('Hotels API Error: ' . $e->getMessage());
-                Response::error('Failed to retrieve hotels');
+                Response::error('Failed to retrieve hotels: ' . $e->getMessage());
             }
         }
         break;
@@ -117,8 +135,7 @@ $hotel['image_url'] = getHotelImageUrl($hotel, $imageCounter++);
             
             $hotelId = $db->lastInsertId();
             $hotel = array_merge($data, ['id' => $hotelId]);
-             $imageCounter = 1;  // or use hotel index if available
-$hotel['image_url'] = getHotelImageUrl($hotel, $imageCounter++);
+            $hotel['image_url'] = getHotelImageUrl($hotel);
             
             Response::created($hotel, 'Hotel created successfully');
         } catch (PDOException $e) {

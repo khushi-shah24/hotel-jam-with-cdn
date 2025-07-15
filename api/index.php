@@ -1,5 +1,12 @@
 <?php
 // API Router - Main entry point for all API requests
+
+// Enable error reporting for debugging (disable in production)
+if ($_ENV['APP_ENV'] !== 'production') {
+    error_reporting(E_ALL);
+    ini_set('display_errors', 1);
+}
+
 header('Content-Type: application/json');
 header('Access-Control-Allow-Origin: *');
 header('Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS');
@@ -11,10 +18,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
     exit();
 }
 
-// Include database and utilities
-require_once __DIR__ . '/../includes/database.php';
-require_once __DIR__ . '/utils/response.php';
-require_once __DIR__ . '/utils/validation.php';
+// Include database and utilities with error handling
+try {
+    require_once __DIR__ . '/../includes/database.php';
+    require_once __DIR__ . '/utils/response.php';
+    require_once __DIR__ . '/utils/validation.php';
+} catch (Exception $e) {
+    error_log('Failed to include required files: ' . $e->getMessage());
+    http_response_code(500);
+    echo json_encode([
+        'success' => false,
+        'message' => 'Server configuration error',
+        'timestamp' => date('c')
+    ]);
+    exit;
+}
 
 // Get request method and path
 $method = $_SERVER['REQUEST_METHOD'];
@@ -27,35 +45,68 @@ if (empty($segments[0])) {
     Response::error('No endpoint specified', 400);
 }
 
+// Verify database connection before routing
+if (!isset($db) || !$db) {
+    Response::error('Database not available', 500);
+}
+
 // Route the request
 try {
     switch ($segments[0]) {
         case 'cities':
-            require_once __DIR__ . '/endpoints/cities.php';
+            if (file_exists(__DIR__ . '/endpoints/cities.php')) {
+                require_once __DIR__ . '/endpoints/cities.php';
+            } else {
+                Response::error('Cities endpoint not found', 404);
+            }
             break;
             
         case 'hotels':
-            require_once __DIR__ . '/endpoints/hotels.php';
+            if (file_exists(__DIR__ . '/endpoints/hotels.php')) {
+                require_once __DIR__ . '/endpoints/hotels.php';
+            } else {
+                Response::error('Hotels endpoint not found', 404);
+            }
             break;
             
         case 'gallery':
-            require_once __DIR__ . '/endpoints/gallery.php';
+            if (file_exists(__DIR__ . '/endpoints/gallery.php')) {
+                require_once __DIR__ . '/endpoints/gallery.php';
+            } else {
+                Response::error('Gallery endpoint not found', 404);
+            }
             break;
             
         case 'videos':
-            require_once __DIR__ . '/endpoints/videos.php';
+            if (file_exists(__DIR__ . '/endpoints/videos.php')) {
+                require_once __DIR__ . '/endpoints/videos.php';
+            } else {
+                Response::error('Videos endpoint not found', 404);
+            }
             break;
             
         case 'contact':
-            require_once __DIR__ . '/endpoints/contact.php';
+            if (file_exists(__DIR__ . '/endpoints/contact.php')) {
+                require_once __DIR__ . '/endpoints/contact.php';
+            } else {
+                Response::error('Contact endpoint not found', 404);
+            }
             break;
             
         case 'faq':
-            require_once __DIR__ . '/endpoints/faq.php';
+            if (file_exists(__DIR__ . '/endpoints/faq.php')) {
+                require_once __DIR__ . '/endpoints/faq.php';
+            } else {
+                Response::error('FAQ endpoint not found', 404);
+            }
             break;
             
         case 'pages':
-            require_once __DIR__ . '/endpoints/pages.php';
+            if (file_exists(__DIR__ . '/endpoints/pages.php')) {
+                require_once __DIR__ . '/endpoints/pages.php';
+            } else {
+                Response::error('Pages endpoint not found', 404);
+            }
             break;
             
         default:
@@ -63,6 +114,6 @@ try {
     }
 } catch (Exception $e) {
     error_log('API Error: ' . $e->getMessage());
-    Response::error('Internal server error', 500);
+    Response::error('Internal server error: ' . $e->getMessage(), 500);
 }
 ?>
