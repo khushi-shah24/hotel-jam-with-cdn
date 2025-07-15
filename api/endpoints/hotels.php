@@ -103,24 +103,25 @@ $hotel['image_url'] = getHotelImageUrl($hotel, $imageCounter++);
         
         try {
             $stmt = $db->prepare("INSERT INTO hotels (name, city_id, city_name, rating, price, description, amenities, featured, image_seed) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)");
-            $stmt->bindValue(1, $data['name'], SQLITE3_TEXT);
-            $stmt->bindValue(2, $data['city_id'], SQLITE3_INTEGER);
-            $stmt->bindValue(3, $data['city_name'], SQLITE3_TEXT);
-            $stmt->bindValue(4, $data['rating'], SQLITE3_INTEGER);
-            $stmt->bindValue(5, $data['price'], SQLITE3_FLOAT);
-            $stmt->bindValue(6, $data['description'], SQLITE3_TEXT);
-            $stmt->bindValue(7, $data['amenities'], SQLITE3_TEXT);
-            $stmt->bindValue(8, $data['featured'] ?? 0, SQLITE3_INTEGER);
-            $stmt->bindValue(9, 'hotel_' . time(), SQLITE3_TEXT);
-            $stmt->execute();
+            $stmt->execute([
+                $data['name'],
+                $data['city_id'],
+                $data['city_name'],
+                $data['rating'],
+                $data['price'],
+                $data['description'],
+                $data['amenities'],
+                $data['featured'] ?? 0,
+                'hotel_' . time()
+            ]);
             
-            $hotelId = $db->lastInsertRowID();
+            $hotelId = $db->lastInsertId();
             $hotel = array_merge($data, ['id' => $hotelId]);
              $imageCounter = 1;  // or use hotel index if available
 $hotel['image_url'] = getHotelImageUrl($hotel, $imageCounter++);
             
             Response::created($hotel, 'Hotel created successfully');
-        } catch (Exception $e) {
+        } catch (PDOException $e) {
             error_log('Hotel creation error: ' . $e->getMessage());
             Response::error('Failed to create hotel');
         }

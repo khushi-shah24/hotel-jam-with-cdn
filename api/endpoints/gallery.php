@@ -52,18 +52,19 @@ switch ($method) {
         
         try {
             $stmt = $db->prepare("INSERT INTO gallery_images (title, category, image_seed, description) VALUES (?, ?, ?, ?)");
-            $stmt->bindValue(1, $data['title'], SQLITE3_TEXT);
-            $stmt->bindValue(2, $data['category'], SQLITE3_TEXT);
-            $stmt->bindValue(3, 'gallery_' . time(), SQLITE3_TEXT);
-            $stmt->bindValue(4, $data['description'], SQLITE3_TEXT);
-            $stmt->execute();
+            $stmt->execute([
+                $data['title'],
+                $data['category'],
+                'gallery_' . time(),
+                $data['description']
+            ]);
             
-            $imageId = $db->lastInsertRowID();
+            $imageId = $db->lastInsertId();
             $image = array_merge($data, ['id' => $imageId]);
             $image['image_url'] = getGalleryImageUrl($image);
             
             Response::created($image, 'Gallery image created successfully');
-        } catch (Exception $e) {
+        } catch (PDOException $e) {
             error_log('Gallery image creation error: ' . $e->getMessage());
             Response::error('Failed to create gallery image');
         }

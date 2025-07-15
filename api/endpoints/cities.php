@@ -36,13 +36,14 @@ switch ($method) {
         
         try {
             $stmt = $db->prepare("INSERT INTO cities (name, country, description, image_seed) VALUES (?, ?, ?, ?)");
-            $stmt->bindValue(1, $data['name'], SQLITE3_TEXT);
-            $stmt->bindValue(2, $data['country'], SQLITE3_TEXT);
-            $stmt->bindValue(3, $data['description'], SQLITE3_TEXT);
-            $stmt->bindValue(4, 'city_' . time(), SQLITE3_TEXT);
-            $stmt->execute();
+            $stmt->execute([
+                $data['name'],
+                $data['country'],
+                $data['description'],
+                'city_' . time()
+            ]);
             
-            $cityId = $db->lastInsertRowID();
+            $cityId = $db->lastInsertId();
             $city = [
                 'id' => $cityId,
                 'name' => $data['name'],
@@ -52,7 +53,7 @@ switch ($method) {
             ];
             
             Response::created($city, 'City created successfully');
-        } catch (Exception $e) {
+        } catch (PDOException $e) {
             error_log('City creation error: ' . $e->getMessage());
             Response::error('Failed to create city');
         }

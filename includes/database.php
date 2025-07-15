@@ -1,6 +1,13 @@
 <?php
-// database.php
+// database.php - MySQL Version
 define('PROJECT_ROOT', dirname(__DIR__));
+
+// Database configuration - Update these with your MySQL credentials
+define('DB_HOST', 'localhost');
+define('DB_NAME', 'elite_hotels');
+define('DB_USER', 'root');
+define('DB_PASS', '');
+define('DB_CHARSET', 'utf8mb4');
 
 // Image configuration for local and Cloudinary images
 $CITY_FOLDER_MAP = [
@@ -250,80 +257,89 @@ $CLOUDINARY_IMAGE_CITIES = [
 // Image file extensions to look for
 $SUPPORTED_EXTENSIONS = ['jpg', 'jpeg', 'png', 'webp'];
 
-// Ensure the data directory exists
-if (!is_dir(PROJECT_ROOT . '/data')) {
-    mkdir(PROJECT_ROOT . '/data', 0755, true);
-}
-
-// Connect to SQLite database with error handling
+// Connect to MySQL database with error handling
 try {
-    $db = new SQLite3(PROJECT_ROOT . '/data/hotels.db');
-    $db->enableExceptions(true);
-} catch (Exception $e) {
+    $dsn = "mysql:host=" . DB_HOST . ";dbname=" . DB_NAME . ";charset=" . DB_CHARSET;
+    $options = [
+        PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
+        PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
+        PDO::ATTR_EMULATE_PREPARES => false,
+    ];
+    $db = new PDO($dsn, DB_USER, DB_PASS, $options);
+} catch (PDOException $e) {
     die("Database connection failed: " . $e->getMessage());
 }
 
-// Create tables if they don't exist (but don't insert data - use existing data)
+// Create tables if they don't exist (MySQL syntax)
 $db->exec("
     CREATE TABLE IF NOT EXISTS cities (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        name TEXT UNIQUE NOT NULL,
-        country TEXT NOT NULL,
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        name VARCHAR(255) UNIQUE NOT NULL,
+        country VARCHAR(255) NOT NULL,
         description TEXT,
-        image_seed TEXT
-    )
+        image_seed VARCHAR(255),
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
 ");
 
 $db->exec("
     CREATE TABLE IF NOT EXISTS hotels (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        name TEXT NOT NULL,
-        city_id INTEGER NOT NULL,
-        city_name TEXT NOT NULL,
-        rating INTEGER NOT NULL,
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        name VARCHAR(255) NOT NULL,
+        city_id INT NOT NULL,
+        city_name VARCHAR(255) NOT NULL,
+        rating INT NOT NULL,
         price DECIMAL(10,2) NOT NULL,
         description TEXT,
         amenities TEXT,
-        featured INTEGER DEFAULT 0,
-        image_seed TEXT,
-        FOREIGN KEY (city_id) REFERENCES cities(id)
-    )
+        featured TINYINT(1) DEFAULT 0,
+        image_seed VARCHAR(255),
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        FOREIGN KEY (city_id) REFERENCES cities(id) ON DELETE CASCADE,
+        INDEX idx_city_id (city_id),
+        INDEX idx_city_name (city_name),
+        INDEX idx_featured (featured),
+        INDEX idx_rating (rating),
+        INDEX idx_price (price)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
 ");
 
 $db->exec("
     CREATE TABLE IF NOT EXISTS gallery_images (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        title TEXT NOT NULL,
-        category TEXT NOT NULL,
-        image_seed TEXT NOT NULL,
-        description TEXT
-    )
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        title VARCHAR(255) NOT NULL,
+        category VARCHAR(100) NOT NULL,
+        image_seed VARCHAR(255) NOT NULL,
+        description TEXT,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        INDEX idx_category (category)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
 ");
 
 $db->exec("
     CREATE TABLE IF NOT EXISTS videos (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        title TEXT NOT NULL,
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        title VARCHAR(255) NOT NULL,
         description TEXT,
-        category TEXT NOT NULL,
-        video_url TEXT NOT NULL,
-        thumbnail_seed TEXT
-    )
+        category VARCHAR(100) NOT NULL,
+        video_url VARCHAR(500) NOT NULL,
+        thumbnail_seed VARCHAR(255),
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        INDEX idx_category (category)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
 ");
 
 // Fetch all cities with hotel count using subquery
 function getCities() {
     global $db;
     try {
-        $result = $db->query("SELECT c.*, (SELECT COUNT(*) FROM hotels h WHERE h.city_name = c.name) as hotel_count FROM cities c ORDER BY c.name");
-        $cities = [];
-        if ($result) {
-            while ($row = $result->fetchArray(SQLITE3_ASSOC)) {
-                $cities[] = $row;
-            }
-        }
-        return $cities;
-    } catch (Exception $e) {
+        $stmt = $db->query("SELECT c.*, (SELECT COUNT(*) FROM hotels h WHERE h.city_name = c.name) as hotel_count FROM cities c ORDER BY c.name");
+        return $stmt->fetchAll();
+    } catch (PDOException $e) {
         error_log("Error fetching cities: " . $e->getMessage());
         return [];
     }
@@ -335,16 +351,9 @@ function getFeaturedHotels($limit = 5) {
     try {
         // Get featured hotels from different cities to avoid repetition
         $stmt = $db->prepare("SELECT * FROM hotels WHERE featured = 1 ORDER BY city_name, rating DESC LIMIT ?");
-        $stmt->bindValue(1, $limit, SQLITE3_INTEGER);
-        $result = $stmt->execute();
-        $hotels = [];
-        if ($result) {
-            while ($row = $result->fetchArray(SQLITE3_ASSOC)) {
-                $hotels[] = $row;
-            }
-        }
-        return $hotels;
-    } catch (Exception $e) {
+        $stmt->execute([$limit]);
+        return $stmt->fetchAll();
+    } catch (PDOException $e) {
         error_log("Error fetching featured hotels: " . $e->getMessage());
         return [];
     }
@@ -376,22 +385,15 @@ function getHotels($city = '', $limit = 24, $offset = 0) {
                 WHERE c.name = ?
                 ORDER BY h.featured DESC, h.rating DESC, h.price ASC 
                 LIMIT ? OFFSET ?");
-            $stmt->bindValue(1, $city, SQLITE3_TEXT);
-            $stmt->bindValue(2, $limit, SQLITE3_INTEGER);
-            $stmt->bindValue(3, $offset, SQLITE3_INTEGER);
+            $stmt->execute([$city, $limit, $offset]);
         } else {
             // Get all hotels with proper distribution
             $stmt = $db->prepare("SELECT * FROM hotels ORDER BY featured DESC, rating DESC, price ASC LIMIT ? OFFSET ?");
-            $stmt->bindValue(1, $limit, SQLITE3_INTEGER);
-            $stmt->bindValue(2, $offset, SQLITE3_INTEGER);
+            $stmt->execute([$limit, $offset]);
         }
         
-        $result = $stmt->execute();
-        while ($row = $result->fetchArray(SQLITE3_ASSOC)) {
-            $hotels[] = $row;
-        }
-        return $hotels;
-    } catch (Exception $e) {
+        return $stmt->fetchAll();
+    } catch (PDOException $e) {
         error_log("Error fetching hotels: " . $e->getMessage());
         return [];
     }
@@ -399,13 +401,15 @@ function getHotels($city = '', $limit = 24, $offset = 0) {
 
 function getCityIdByName($cityName) {
     global $db;
-    $stmt = $db->prepare("SELECT id FROM cities WHERE LOWER(TRIM(name)) = LOWER(TRIM(?))");
-    $stmt->bindValue(1, $cityName, SQLITE3_TEXT);
-    $result = $stmt->execute();
-    if ($row = $result->fetchArray(SQLITE3_ASSOC)) {
-        return $row['id'];
+    try {
+        $stmt = $db->prepare("SELECT id FROM cities WHERE LOWER(TRIM(name)) = LOWER(TRIM(?))");
+        $stmt->execute([$cityName]);
+        $result = $stmt->fetch();
+        return $result ? $result['id'] : null;
+    } catch (PDOException $e) {
+        error_log("Error getting city ID: " . $e->getMessage());
+        return null;
     }
-    return null;
 }
 
 // FIXED: Get total hotel count for pagination with city-specific limits
@@ -426,27 +430,25 @@ function getTotalHotels($city = '') {
             }
             
             // For other cities, get actual count
-            $stmtCity = $db->prepare("SELECT id FROM cities WHERE name = ?");
-            $stmtCity->bindValue(1, $city, SQLITE3_TEXT);
-            $resultCity = $stmtCity->execute();
-            $cityData = $resultCity->fetchArray(SQLITE3_ASSOC);
+            $stmt = $db->prepare("SELECT id FROM cities WHERE name = ?");
+            $stmt->execute([$city]);
+            $cityData = $stmt->fetch();
 
             if ($cityData) {
                 $city_id = $cityData['id'];
                 $stmt = $db->prepare("SELECT COUNT(*) as count FROM hotels WHERE city_id = ?");
-                $stmt->bindValue(1, $city_id, SQLITE3_INTEGER);
-                $result = $stmt->execute();
-                $row = $result->fetchArray(SQLITE3_ASSOC);
-                return $row['count'];
+                $stmt->execute([$city_id]);
+                $result = $stmt->fetch();
+                return $result['count'];
             } else {
                 return 0;
             }
         } else {
-            $result = $db->query("SELECT COUNT(*) as count FROM hotels");
-            $row = $result->fetchArray(SQLITE3_ASSOC);
-            return $row['count'];
+            $stmt = $db->query("SELECT COUNT(*) as count FROM hotels");
+            $result = $stmt->fetch();
+            return $result['count'];
         }
-    } catch (Exception $e) {
+    } catch (PDOException $e) {
         error_log("Error getting total hotels: " . $e->getMessage());
         return 0;
     }
@@ -457,13 +459,9 @@ function getHotelById($id) {
     global $db;
     try {
         $stmt = $db->prepare("SELECT * FROM hotels WHERE id = ?");
-        $stmt->bindValue(1, $id, SQLITE3_INTEGER);
-        $result = $stmt->execute();
-        if ($result) {
-            return $result->fetchArray(SQLITE3_ASSOC);
-        }
-        return false;
-    } catch (Exception $e) {
+        $stmt->execute([$id]);
+        return $stmt->fetch();
+    } catch (PDOException $e) {
         error_log("Error fetching hotel by ID: " . $e->getMessage());
         return false;
     }
@@ -473,15 +471,9 @@ function getHotelById($id) {
 function getGalleryImages() {
     global $db;
     try {
-        $result = $db->query("SELECT * FROM gallery_images ORDER BY category, title");
-        $images = [];
-        if ($result) {
-            while ($row = $result->fetchArray(SQLITE3_ASSOC)) {
-                $images[] = $row;
-            }
-        }
-        return $images;
-    } catch (Exception $e) {
+        $stmt = $db->query("SELECT * FROM gallery_images ORDER BY category, title");
+        return $stmt->fetchAll();
+    } catch (PDOException $e) {
         error_log("Error fetching gallery images: " . $e->getMessage());
         return [];
     }
@@ -529,7 +521,6 @@ function getVideos() {
 
     return $videos;
 }
-
 
 /**
  * FIXED: Get local hotel image for City1 and City2

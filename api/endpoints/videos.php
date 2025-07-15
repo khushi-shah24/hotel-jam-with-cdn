@@ -49,19 +49,20 @@ switch ($method) {
         
         try {
             $stmt = $db->prepare("INSERT INTO videos (title, description, category, video_url, thumbnail_seed) VALUES (?, ?, ?, ?, ?)");
-            $stmt->bindValue(1, $data['title'], SQLITE3_TEXT);
-            $stmt->bindValue(2, $data['description'], SQLITE3_TEXT);
-            $stmt->bindValue(3, $data['category'], SQLITE3_TEXT);
-            $stmt->bindValue(4, $data['video_url'], SQLITE3_TEXT);
-            $stmt->bindValue(5, 'video_' . time(), SQLITE3_TEXT);
-            $stmt->execute();
+            $stmt->execute([
+                $data['title'],
+                $data['description'],
+                $data['category'],
+                $data['video_url'],
+                'video_' . time()
+            ]);
             
-            $videoId = $db->lastInsertRowID();
+            $videoId = $db->lastInsertId();
             $video = array_merge($data, ['id' => $videoId]);
             $video['thumbnail_url'] = getVideoThumbnailUrl($video);
             
             Response::created($video, 'Video created successfully');
-        } catch (Exception $e) {
+        } catch (PDOException $e) {
             error_log('Video creation error: ' . $e->getMessage());
             Response::error('Failed to create video');
         }

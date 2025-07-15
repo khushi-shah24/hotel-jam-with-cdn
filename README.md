@@ -1,10 +1,10 @@
 # Elite Hotels - Single Page Application
 
-A modern hotel booking website built as a Single Page Application (SPA) with APIs, AJAX, and client-side rendering.
+A modern hotel booking website built as a Single Page Application (SPA) with APIs, AJAX, client-side rendering, and MySQL database.
 
 ## Architecture Overview
 
-This project demonstrates the transformation from a monolithic PHP application to a modern SPA architecture:
+This project demonstrates the transformation from a monolithic PHP application to a modern SPA architecture with MySQL database:
 
 ### Build Time (Static Loading)
 - **Header Navigation**: Loaded once and remains persistent
@@ -16,6 +16,12 @@ This project demonstrates the transformation from a monolithic PHP application t
 - **Hotel Data**: Real-time API requests with filtering and pagination
 - **Gallery Images**: Lazy-loaded via API
 - **Contact Forms**: Submitted via AJAX with validation
+
+### Database
+- **MySQL Database**: Replaced SQLite with MySQL for better performance and scalability
+- **phpMyAdmin**: Database management through web interface
+- **PDO**: Modern PHP database abstraction layer
+- **Prepared Statements**: Secure database queries with parameter binding
 
 ## Key Features
 
@@ -30,6 +36,7 @@ This project demonstrates the transformation from a monolithic PHP application t
 - **Lazy loading** for images and content
 - **Debounced search** for city filtering
 - **Pagination** for large datasets
+- **Database indexing** for optimized queries
 
 ### 📱 Modern UX/UI
 - **Responsive design** for all device sizes
@@ -46,12 +53,14 @@ This project demonstrates the transformation from a monolithic PHP application t
 - **HTML5** semantic structure
 - **Fetch API** for HTTP requests
 
-#### Backend APIs
-- **PHP 7.4+** with object-oriented design
-- **SQLite** database with 20,000+ hotels across 200 cities
+#### Backend APIs & Database
+- **PHP 7.4+** with object-oriented design and PDO
+- **MySQL 5.7+** database with 20,000+ hotels across 200 cities
+- **phpMyAdmin** for database management
 - **RESTful API** design with proper HTTP status codes
 - **Input validation** and sanitization
 - **Error handling** and logging
+- **Database transactions** and foreign key constraints
 
 #### API Endpoints
 ```
@@ -66,11 +75,70 @@ GET  /api/faq                 - Get FAQ data
 POST /api/contact             - Submit contact form
 ```
 
+## Database Setup
+
+### Prerequisites
+- **XAMPP/WAMP/MAMP** or similar local server environment
+- **MySQL 5.7+** or **MariaDB 10.2+**
+- **phpMyAdmin** (usually included with XAMPP/WAMP/MAMP)
+- **PHP 7.4+** with PDO MySQL extension
+
+### Installation Steps
+
+1. **Start your local server environment** (XAMPP, WAMP, or MAMP)
+
+2. **Open phpMyAdmin** in your browser (usually `http://localhost/phpmyadmin`)
+
+3. **Create the database**:
+   - Click "New" in the left sidebar
+   - Enter database name: `elite_hotels`
+   - Select collation: `utf8mb4_unicode_ci`
+   - Click "Create"
+
+4. **Import the database structure**:
+   - Select the `elite_hotels` database
+   - Click the "SQL" tab
+   - Copy and paste the contents of `database_setup.sql`
+   - Click "Go" to execute
+
+5. **Configure database connection**:
+   - Update the database credentials in `includes/database.php`:
+   ```php
+   define('DB_HOST', 'localhost');
+   define('DB_NAME', 'elite_hotels');
+   define('DB_USER', 'root');        // Your MySQL username
+   define('DB_PASS', '');            // Your MySQL password
+   ```
+
+6. **Verify the setup**:
+   - Open the application in your browser
+   - Check that cities and hotels load properly
+   - Verify that all functionality works as expected
+
+### Database Structure
+
+The MySQL database includes the following tables:
+
+- **cities**: City information with hotel counts
+- **hotels**: Hotel details with city relationships
+- **gallery_images**: Image gallery data
+- **videos**: Video content information
+
+All tables include:
+- **Primary keys** with AUTO_INCREMENT
+- **Foreign key constraints** for data integrity
+- **Indexes** for optimized query performance
+- **Timestamps** for created_at and updated_at
+- **UTF8MB4** encoding for full Unicode support
+
 ## Project Structure
 
 ```
 /
 ├── index.html                 # Main SPA entry point
+├── database_setup.sql         # MySQL database setup script
+├── config/
+│   └── database.php          # Database configuration
 ├── assets/
 │   ├── css/
 │   │   └── style.css         # Main stylesheet
@@ -92,11 +160,33 @@ POST /api/contact             - Submit contact form
 │       ├── response.php     # Response formatting
 │       └── validation.php   # Input validation
 ├── includes/
-│   └── database.php         # Database connection and functions
-├── data/
-│   └── hotels.db           # SQLite database
+│   └── database.php         # MySQL database connection and functions
 └── .htaccess               # URL rewriting for SPA routing
 ```
+
+## Key Changes from SQLite to MySQL
+
+### Database Connection
+- **Before**: SQLite3 class with file-based database
+- **After**: PDO with MySQL connection string
+- **Benefits**: Better performance, concurrent access, advanced features
+
+### Query Syntax
+- **Auto Increment**: `AUTOINCREMENT` → `AUTO_INCREMENT`
+- **Data Types**: SQLite generic types → MySQL specific types
+- **Binding**: `bindValue()` with type constants → `execute()` with array
+- **Last Insert ID**: `lastInsertRowID()` → `lastInsertId()`
+
+### Error Handling
+- **Before**: SQLite3 exceptions
+- **After**: PDOException with detailed error information
+- **Benefits**: More descriptive error messages and better debugging
+
+### Performance Improvements
+- **Indexes**: Added proper database indexes for faster queries
+- **Foreign Keys**: Enforced referential integrity
+- **Connection Pooling**: Better resource management
+- **Query Optimization**: MySQL query optimizer
 
 ## Key SPA Features
 
@@ -167,12 +257,14 @@ const hotelCard = UIComponents.createCard(
 - **API Response Caching**: 5-minute TTL for GET requests
 - **Image Lazy Loading**: Load images as they enter viewport
 - **Component Memoization**: Reuse rendered components
+- **Database Query Caching**: MySQL query cache for repeated queries
 
 ### Optimization Techniques
 - **Debounced Search**: Prevent excessive API calls during typing
 - **Pagination**: Load data in chunks for better performance
 - **Minification**: Compressed CSS and optimized images
 - **CDN-Ready**: Static assets can be served from CDN
+- **Database Indexing**: Optimized database queries with proper indexes
 
 ## Browser Support
 
@@ -186,33 +278,38 @@ const hotelCard = UIComponents.createCard(
 - Detailed error logging
 - Debug information in responses
 - Unminified assets for debugging
+- phpMyAdmin for database management
 
 ### Production Optimizations
 - Error logging to files
 - Minified and compressed assets
 - Security headers via .htaccess
 - Database query optimization
+- MySQL performance tuning
 
 ## Getting Started
 
-1. **Setup Database**: Ensure SQLite database exists with sample data
+1. **Setup Database**: Create MySQL database using phpMyAdmin and import `database_setup.sql`
 2. **Configure Web Server**: Apache/Nginx with PHP 7.4+
-3. **Enable URL Rewriting**: Ensure .htaccess is processed
-4. **Open Application**: Navigate to the domain root
+3. **Configure Database**: Update database credentials in `includes/database.php`
+4. **Enable URL Rewriting**: Ensure .htaccess is processed
+5. **Open Application**: Navigate to the domain root
 
 The application will automatically load the SPA interface and begin making API calls to populate content dynamically.
 
-## Key Differences from Monolithic Version
+## Key Differences: Monolithic vs SPA vs MySQL
 
-| Aspect | Monolithic | SPA |
-|--------|------------|-----|
-| **Page Loading** | Full page refresh | Dynamic content loading |
-| **Navigation** | Server-side routing | Client-side routing |
-| **Data Fetching** | PHP includes | AJAX API calls |
-| **State Management** | Session/URL parameters | JavaScript state |
-| **User Experience** | Page reloads | Smooth transitions |
-| **Performance** | Server rendering | Client rendering + caching |
-| **SEO** | Server-side HTML | Client-side rendering |
-| **Scalability** | Monolithic scaling | API + Frontend separation |
+| Aspect | Monolithic | SPA + SQLite | SPA + MySQL |
+|--------|------------|--------------|-------------|
+| **Page Loading** | Full page refresh | Dynamic content loading | Dynamic content loading |
+| **Navigation** | Server-side routing | Client-side routing | Client-side routing |
+| **Data Fetching** | PHP includes | AJAX API calls | AJAX API calls |
+| **Database** | Direct queries | SQLite file | MySQL server |
+| **Concurrency** | Limited | File locking issues | Full concurrent access |
+| **Performance** | Server rendering | Client + file I/O | Client + optimized queries |
+| **Scalability** | Monolithic scaling | Limited by file system | Horizontal scaling ready |
+| **Management** | File system | File system | phpMyAdmin interface |
+| **Backup** | File copy | File copy | Database dump/restore |
+| **Integrity** | Application level | Limited constraints | Foreign key constraints |
 
-This SPA architecture provides a modern, responsive user experience while maintaining the same functionality as the original monolithic application.
+This SPA architecture with MySQL provides a modern, responsive user experience with enterprise-grade database capabilities while maintaining all the functionality of the original application.
