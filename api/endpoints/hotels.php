@@ -1,0 +1,132 @@
+<?php
+// Hotels API Endpoint
+global $db;
+
+switch ($method) {
+    case 'GET':
+        if (isset($segments[1])) {
+            // Get specific hotel or hotel action
+            switch ($segments[1]) {
+                case 'featured':
+                    // Get featured hotels
+                    $limit = isset($_GET['limit']) ? (int)$_GET['limit'] : 5;
+                    try {
+                        $hotels = getFeaturedHotels($limit);
+                        
+                        // Add image URLs
+                        foreach ($hotels as &$hotel) {
+                            static $imageCounter = 1;  // or use hotel index if available
+$hotel['image_url'] = getHotelImageUrl($hotel, $imageCounter++);
+                        }
+                        
+                        Response::success($hotels, 'Featured hotels retrieved successfully');
+                    } catch (Exception $e) {
+                        error_log('Featured hotels API Error: ' . $e->getMessage());
+                        Response::error('Failed to retrieve featured hotels');
+                    }
+                    break;
+                    
+                case 'count':
+                    // Get total hotel count
+                    $city = $_GET['city'] ?? '';
+                    try {
+                        $count = getTotalHotels($city);
+                        Response::success(['count' => $count], 'Hotel count retrieved successfully');
+                    } catch (Exception $e) {
+                        error_log('Hotel count API Error: ' . $e->getMessage());
+                        Response::error('Failed to retrieve hotel count');
+                    }
+                    break;
+                    
+                default:
+                    // Get specific hotel by ID
+                    $hotelId = (int)$segments[1];
+                    try {
+                        $hotel = getHotelById($hotelId);
+                        if (!$hotel) {
+                            Response::notFound('Hotel not found');
+                        }
+                        
+                        static $imageCounter = 1;  // or use hotel index if available
+$hotel['image_url'] = getHotelImageUrl($hotel, $imageCounter++);
+                        Response::success($hotel, 'Hotel retrieved successfully');
+                    } catch (Exception $e) {
+                        error_log('Hotel API Error: ' . $e->getMessage());
+                        Response::error('Failed to retrieve hotel');
+                    }
+            }
+        } else {
+            // Get hotels with filters and pagination
+            $city = $_GET['city'] ?? '';
+            $limit = isset($_GET['limit']) ? (int)$_GET['limit'] : 24;
+            $page = isset($_GET['page']) ? (int)$_GET['page'] : 1;
+            $offset = ($page - 1) * $limit;
+            $imageCounter = ($page - 1) * $limit + 1;
+
+            try {
+                $hotels = getHotels($city, $limit, $offset);
+                $totalCount = getTotalHotels($city);
+                
+                // Add image URLs
+                foreach ($hotels as &$hotel) {
+                    static $imageCounter = 1;  // or use hotel index if available
+$hotel['image_url'] = getHotelImageUrl($hotel, $imageCounter++);
+                }
+                
+                Response::paginated($hotels, $totalCount, $page, $limit, 'Hotels retrieved successfully');
+                
+            } catch (Exception $e) {
+                error_log('Hotels API Error: ' . $e->getMessage());
+                Response::error('Failed to retrieve hotels');
+            }
+        }
+        break;
+        
+    case 'POST':
+        // Create new hotel (admin functionality)
+        $input = json_decode(file_get_contents('php://input'), true);
+        $validator = Validator::make($input, [
+            'name' => 'required|min:2|max:200',
+            'city_id' => 'required|numeric',
+            'city_name' => 'required|min:2|max:100',
+            'rating' => 'required|numeric',
+            'price' => 'required|numeric',
+            'description' => 'required|min:10|max:1000',
+            'amenities' => 'required|min:5'
+        ]);
+        
+        if ($validator->fails()) {
+            Response::validation($validator->errors());
+        }
+        
+        $data = $validator->validated();
+        
+        try {
+            $stmt = $db->prepare("INSERT INTO hotels (name, city_id, city_name, rating, price, description, amenities, featured, image_seed) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)");
+            $stmt->bindValue(1, $data['name'], SQLITE3_TEXT);
+            $stmt->bindValue(2, $data['city_id'], SQLITE3_INTEGER);
+            $stmt->bindValue(3, $data['city_name'], SQLITE3_TEXT);
+            $stmt->bindValue(4, $data['rating'], SQLITE3_INTEGER);
+            $stmt->bindValue(5, $data['price'], SQLITE3_FLOAT);
+            $stmt->bindValue(6, $data['description'], SQLITE3_TEXT);
+            $stmt->bindValue(7, $data['amenities'], SQLITE3_TEXT);
+            $stmt->bindValue(8, $data['featured'] ?? 0, SQLITE3_INTEGER);
+            $stmt->bindValue(9, 'hotel_' . time(), SQLITE3_TEXT);
+            $stmt->execute();
+            
+            $hotelId = $db->lastInsertRowID();
+            $hotel = array_merge($data, ['id' => $hotelId]);
+             $imageCounter = 1;  // or use hotel index if available
+$hotel['image_url'] = getHotelImageUrl($hotel, $imageCounter++);
+            
+            Response::created($hotel, 'Hotel created successfully');
+        } catch (Exception $e) {
+            error_log('Hotel creation error: ' . $e->getMessage());
+            Response::error('Failed to create hotel');
+        }
+        break;
+        
+    default:
+        Response::error('Method not allowed', 405);
+}
+?>

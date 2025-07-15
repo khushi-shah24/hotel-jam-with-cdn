@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Elite Hotels - Luxury Accommodations Worldwide</title>
+    <link rel="stylesheet" href="assets/css/style.css">
+    <link rel="stylesheet" href="assets/css/spa-styles.css">
+    
+    <!-- PREVENT ALL PAGE RELOADS IMMEDIATELY -->
+    <script>
+        // Prevent ALL navigation clicks from causing page reloads
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('🚫 PREVENTING ALL PAGE RELOADS FROM THE START');
+            
+            // Immediately prevent all navigation clicks
+            document.addEventListener('click', function(e) {
+                // Check for any navigation link
+                if (e.target.matches('a[data-page], .nav-link, .city-link') || 
+                    e.target.closest('a[data-page], .nav-link, .city-link')) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    console.log('🚫 PREVENTED PAGE RELOAD - WAITING FOR SPA TO HANDLE');
+                    
+                    // Store the click for SPA to handle later
+                    const link = e.target.matches('a[data-page], .nav-link, .city-link') ? 
+                                e.target : e.target.closest('a[data-page], .nav-link, .city-link');
+                    
+                    // Wait for SPA to be ready, then handle the click
+                    const handleClick = () => {
+                        if (window.spa) {
+                            const page = link.getAttribute('data-page');
+                            const city = link.getAttribute('data-city');
+                            
+                            if (page) {
+                                console.log(`🔗 SPA handling navigation: ${page}`);
+                                window.spa.navigateToPage(page);
+                            } else if (city) {
+                                console.log(`🏙️ SPA handling city: ${city}`);
+                                window.spa.navigateToPage('products', city);
+                            }
+                        } else {
+                            // SPA not ready yet, wait a bit more
+                            setTimeout(handleClick, 100);
+                        }
+                    };
+                    
+                    handleClick();
+                }
+            }, true); // Use capture phase to catch early
+        });
+    </script>
+</head>
+<body>
+    <!-- Header - STATIC (loaded once, never reloads) -->
+    <header class="header">
+        <div class="container">
+            <div class="header-content">
+                <div class="logo">
+                    <h1>Elite Hotels</h1>
+                    <span>Luxury Accommodations</span>
+                </div>
+                <nav class="main-nav">
+                    <ul>
+                        <li><a href="#home" data-page="home" class="nav-link active">Home</a></li>
+                        <li><a href="#faq" data-page="faq" class="nav-link">FAQ</a></li>
+                        <li><a href="#contact" data-page="contact" class="nav-link">Contact</a></li>
+                        <li><a href="#gallery" data-page="gallery" class="nav-link">Gallery</a></li>
+                        <li><a href="#products" data-page="products" class="nav-link" >Hotels</a></li>
+                    </ul>
+                </nav>
+            </div>
+        </div>
+    </header>
+
+    <!-- Slideshow Container - STATIC (loaded once via AJAX) -->
+    <section id="slideshow-container" class="slideshow-container">
+        <!-- Slideshow will be loaded via AJAX once and stay static -->
+    </section>
+
+    <div class="main-container">
+        <!-- Sidebar - STATIC (loaded once via AJAX, never reloads) -->
+        <aside class="sidebar" id="sidebar">
+            <h3>Cities</h3>
+            <div class="city-search">
+                <input type="text" id="citySearch" placeholder="Search cities..." onkeyup="filterCities()">
+            </div>
+            <ul class="city-list" id="cityList">
+                <!-- Cities will be loaded via AJAX ONCE and cached -->
+                <li><em>Loading cities via AJAX...</em></li>
+            </ul>
+        </aside>
+
+        <!-- Main Content - DYNAMIC (ONLY this section updates via AJAX) -->
+        <main class="main-content" id="main-content">
+            <!-- ONLY THIS CONTENT WILL UPDATE ON NAVIGATION -->
+            <!-- Loading indicator will be dynamically added here when needed -->
+            <div style="text-align: center; padding: 4rem 2rem; color: #6b7280;">
+                <h2>Welcome to Elite Hotels</h2>
+                <p>Loading content via AJAX...</p>
+                <p><strong>📌 Header and sidebar are STATIC - only this area updates!</strong></p>
+                <p><strong>🚫 NO MORE PAGE RELOADS - EVEN ON FIRST CLICK!</strong></p>
+            </div>
+        </main>
+    </div>
+
+    <!-- Footer - STATIC (never reloads) -->
+    <footer class="footer">
+        <div class="container">
+            <div class="footer-content">
+                <div class="footer-section">
+                    <h4>Elite Hotels</h4>
+                    <p>Providing luxury accommodations worldwide since 1985.</p>
+                </div>
+                <div class="footer-section">
+                    <h4>Quick Links</h4>
+                    <ul>
+                        <li><a href="#home" data-page="home" class="nav-link">Home</a></li>
+                        <li><a href="#faq" data-page="faq" class="nav-link">FAQ</a></li>
+                        <li><a href="#contact" data-page="contact" class="nav-link">Contact</a></li>
+                        <li><a href="#gallery" data-page="gallery" class="nav-link">Gallery</a></li>
+                    </ul>
+                </div>
+                <div class="footer-section">
+                    <h4>Contact Info</h4>
+                    <p>Email: info@elitehotels.com</p>
+                    <p>Phone: +1 (555) 123-4567</p>
+                </div>
+            </div>
+            <div class="footer-bottom">
+                <p>&copy; 2025 Elite Hotels. All rights reserved.</p>
+            </div>
+        </div>
+    </footer>
+
+    <!-- Success Modal -->
+    <div id="successModal" class="success-modal">
+        <div class="success-modal-content">
+            <div class="success-icon">✓</div>
+            <h3>Success!</h3>
+            <p id="modal-message">Operation completed successfully.</p>
+            <button class="modal-close-btn" onclick="closeSuccessModal()">Close</button>
+        </div>
+    </div>
+
+    <!-- Lightbox Modal -->
+    <div id="lightbox" class="lightbox">
+        <div class="lightbox-content">
+            <span class="lightbox-close" onclick="closeLightbox()">&times;</span>
+            <img id="lightboxImage" src="" alt="">
+            <div class="lightbox-info">
+                <h3 id="lightboxTitle"></h3>
+                <p id="lightboxCategory"></p>
+                <p id="lightboxDescription"></p>
+            </div>
+            <button class="lightbox-nav prev" onclick="navigateLightbox(-1)">❮</button>
+            <button class="lightbox-nav next" onclick="navigateLightbox(1)">❯</button>
+        </div>
+    </div>
+
+    <!-- Scripts - Load AJAX first, then SPA -->
+    <script src="assets/js/ajax.js"></script>
+    <script src="assets/js/components.js"></script>
+    <script src="assets/js/script.js"></script>
+    <script src="assets/js/spa-fixed.js"></script>
+    <script>
+    // SPA Navigation Handler - Place at end of <body>
+    document.addEventListener('click', function(e) {
+        let link = e.target.closest('a[data-page], .nav-link, .city-link, button[data-page]');
+        if (link) {
+            e.preventDefault();
+            let page = link.getAttribute('data-page');
+            let city = link.getAttribute('data-city');
+            let pageNum = link.getAttribute('data-pagenum') || 1;
+
+            // Wait for SPA router to be ready
+            const tryNavigate = () => {
+                if (window.spa && typeof window.spa.navigateToPage === 'function') {
+                    window.spa.navigateToPage(page, city, parseInt(pageNum), true);
+                } else {
+                    setTimeout(tryNavigate, 50);
+                }
+            };
+            tryNavigate();
+        }
+    });
+    </script>
+</body>
+</html>
